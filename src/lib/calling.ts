@@ -1,9 +1,11 @@
 import twilio from "twilio";
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+function getClient() {
+  return twilio(
+    process.env.TWILIO_ACCOUNT_SID!,
+    process.env.TWILIO_AUTH_TOKEN!
+  );
+}
 
 const PHONE_FROM = process.env.TWILIO_PHONE_NUMBER || "+1234567890";
 
@@ -27,7 +29,7 @@ export async function makeConfirmationCall(
     </Response>
   `;
 
-  const call = await client.calls.create({
+  const call = await getClient().calls.create({
     from: PHONE_FROM,
     to,
     twiml,
@@ -47,7 +49,7 @@ export async function makeFollowUpCall(
     </Response>
   `;
 
-  const call = await client.calls.create({
+  const call = await getClient().calls.create({
     from: PHONE_FROM,
     to,
     twiml,

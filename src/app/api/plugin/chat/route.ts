@@ -18,11 +18,16 @@ export async function POST(request: NextRequest) {
 
     // Find or create customer
     let customer = await prisma.customer.findFirst({
-      where: { email, storeId: store.id },
+      where: { storeId: store.id, email },
     });
     if (!customer) {
       customer = await prisma.customer.create({
-        data: { email, name: email.split("@")[0], storeId: store.id },
+        data: {
+          email,
+          name: email.split("@")[0],
+          phone: `plugin-${Date.now()}`,
+          storeId: store.id,
+        },
       });
     }
 
@@ -49,7 +54,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate AI reply
-    const aiReply = await getAIResponse(store.id, customer.id, message);
+    const aiReply = await getAIResponse(store.id, message, [], customer.phone);
 
     // Save AI message
     await prisma.message.create({

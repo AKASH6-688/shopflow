@@ -19,10 +19,9 @@ export async function GET(req: NextRequest) {
   const search = req.nextUrl.searchParams.get("search") || "";
   const lowStock = req.nextUrl.searchParams.get("lowStock") === "true";
 
-  const items = await prisma.inventoryItem.findMany({
+  let items = await prisma.inventoryItem.findMany({
     where: {
       storeId,
-      ...(lowStock ? { quantity: { lte: prisma.raw("\"lowStockAlert\"") as any } } : {}),
       product: search ? { name: { contains: search, mode: "insensitive" } } : undefined,
     },
     include: {
@@ -30,6 +29,10 @@ export async function GET(req: NextRequest) {
     },
     orderBy: { updatedAt: "desc" },
   });
+
+  if (lowStock) {
+    items = items.filter((item) => item.quantity <= (item.lowStockAlert ?? 10));
+  }
 
   return NextResponse.json(items);
 }

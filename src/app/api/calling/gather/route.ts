@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// GET /api/calling/gather - Twilio call gather callback
+// POST /api/calling/gather - Twilio call gather callback
 export async function POST(req: NextRequest) {
   const formData = await req.text();
   const params = new URLSearchParams(formData);
