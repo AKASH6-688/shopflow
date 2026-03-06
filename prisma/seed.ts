@@ -11,13 +11,17 @@ async function main() {
   console.log("Seeding database...");
 
   // Create demo user
-  const user = await prisma.user.create({
-    data: {
-      email: "demo@shopflow.com",
-      name: "Demo User",
-      password: hash("demo1234"),
-    },
-  });
+  // ✅ FIXED - Use await and hashedPassword
+const bcrypt = await import("bcryptjs");
+const hashedPassword = await bcrypt.hash("demo1234", 10);
+
+await prisma.user.create({
+  data: {
+    email: "demo@shopflow.com",
+    name: "Demo User",
+    hashedPassword: hashedPassword,
+  },
+});
 
   // Create demo store
   const store = await prisma.store.create({
