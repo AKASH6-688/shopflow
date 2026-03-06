@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const storeId = await getStoreId((session.user as any).id);
   if (!storeId) return NextResponse.json({ error: "No store found" }, { status: 404 });
 
-  const { action, testId, name, variantA, variantB, splitPercent, winnerMetric, winnerVariant, statsA, statsB } = await req.json();
+  const { action, testId, name, variantA, variantB, splitPercent, winnerMetric, winnerVariant, variantAStats, variantBStats } = await req.json();
 
   // Declare winner
   if (action === "declare_winner" && testId) {
@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
       where: { id: testId },
       data: {
         winnerVariant: winnerVariant || "A",
-        status: "COMPLETED",
+        status: "completed",
+        completedAt: new Date(),
       },
     });
     return NextResponse.json(test);
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
   if (action === "update_stats" && testId) {
     const test = await prisma.aBTest.update({
       where: { id: testId },
-      data: { statsA: statsA || {}, statsB: statsB || {} },
+      data: { variantAStats: variantAStats || {}, variantBStats: variantBStats || {} },
     });
     return NextResponse.json(test);
   }
@@ -70,8 +71,8 @@ export async function POST(req: NextRequest) {
       variantA,
       variantB,
       splitPercent: splitPercent || 50,
-      winnerMetric: winnerMetric || "open_rate",
-      status: "RUNNING",
+      winnerMetric: winnerMetric || "read_rate",
+      status: "running",
     },
   });
 

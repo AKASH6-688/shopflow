@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   if (action === "update" && replyId) {
     const reply = await prisma.savedReply.update({
       where: { id: replyId },
-      data: { name, shortcut, content, category },
+      data: { title: name, shortcut, content, category },
     });
     return NextResponse.json(reply);
   }
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   const reply = await prisma.savedReply.create({
-    data: { storeId, name, shortcut: shortcut || "", content, category: category || "General" },
+    data: { storeId, title: name, shortcut: shortcut || "", content, category: category || "General" },
   });
 
   return NextResponse.json(reply);

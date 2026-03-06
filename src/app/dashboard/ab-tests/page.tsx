@@ -12,8 +12,8 @@ interface ABTest {
   winnerMetric: string;
   winnerVariant: string | null;
   status: string;
-  statsA: any;
-  statsB: any;
+  variantAStats: any;
+  variantBStats: any;
   createdAt: string;
   broadcasts: { id: string; name: string; totalSent: number; totalRecipients: number }[];
 }
@@ -71,8 +71,8 @@ export default function ABTestPage() {
     loadTests();
   }
 
-  const running = tests.filter((t) => t.status === "RUNNING").length;
-  const completed = tests.filter((t) => t.status === "COMPLETED").length;
+  const running = tests.filter((t) => t.status === "running").length;
+  const completed = tests.filter((t) => t.status === "completed").length;
 
   if (loading) return <div className="p-8"><div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full mx-auto"></div></div>;
 
@@ -119,8 +119,8 @@ export default function ABTestPage() {
                 <div className="flex items-center gap-3">
                   <h3 className="font-semibold text-gray-900">{test.name}</h3>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    test.status === "RUNNING" ? "bg-blue-100 text-blue-800" :
-                    test.status === "COMPLETED" ? "bg-green-100 text-green-800" :
+                    test.status === "running" ? "bg-blue-100 text-blue-800" :
+                    test.status === "completed" ? "bg-green-100 text-green-800" :
                     "bg-gray-100 text-gray-600"
                   }`}>{test.status}</span>
                 </div>
@@ -137,14 +137,14 @@ export default function ABTestPage() {
                   {test.winnerVariant === "A" && <Trophy className="w-4 h-4 text-green-600" />}
                 </div>
                 <p className="text-sm text-gray-600 mb-3">{test.variantA?.message || JSON.stringify(test.variantA)}</p>
-                {test.statsA && (
+                {test.variantAStats && (
                   <div className="flex gap-4 text-xs text-gray-500">
-                    {Object.entries(test.statsA as Record<string, unknown>).map(([k, v]) => (
+                    {Object.entries(test.variantAStats as Record<string, unknown>).map(([k, v]) => (
                       <span key={k}>{k}: <strong>{String(v)}</strong></span>
                     ))}
                   </div>
                 )}
-                {test.status === "RUNNING" && !test.winnerVariant && (
+                {test.status === "running" && !test.winnerVariant && (
                   <button onClick={() => declareWinner(test.id, "A")} className="mt-3 text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Declare Winner</button>
                 )}
               </div>
@@ -156,14 +156,14 @@ export default function ABTestPage() {
                   {test.winnerVariant === "B" && <Trophy className="w-4 h-4 text-green-600" />}
                 </div>
                 <p className="text-sm text-gray-600 mb-3">{test.variantB?.message || JSON.stringify(test.variantB)}</p>
-                {test.statsB && (
+                {test.variantBStats && (
                   <div className="flex gap-4 text-xs text-gray-500">
-                    {Object.entries(test.statsB as Record<string, unknown>).map(([k, v]) => (
+                    {Object.entries(test.variantBStats as Record<string, unknown>).map(([k, v]) => (
                       <span key={k}>{k}: <strong>{String(v)}</strong></span>
                     ))}
                   </div>
                 )}
-                {test.status === "RUNNING" && !test.winnerVariant && (
+                {test.status === "running" && !test.winnerVariant && (
                   <button onClick={() => declareWinner(test.id, "B")} className="mt-3 text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Declare Winner</button>
                 )}
               </div>
