@@ -11,18 +11,15 @@ async function main() {
   console.log("Seeding database...");
 
   // Create demo user
-  // ✅ FIXED - Use await and hashedPassword
-const bcrypt = await import("bcryptjs");
-const hashedPassword = await bcrypt.hash("demo1234", 10);
+  const hashedPassword = hash("demo1234");
 
-await prisma.user.create({
-  data: {
-    email: "demo@shopflow.com",
-    name: "Demo User",
-    // ✅ CORRECT — matches your schema
-passwordHash: hashedPassword,
-  },
-});
+  const user = await prisma.user.create({
+    data: {
+      email: "demo@shopflow.com",
+      name: "Demo User",
+      passwordHash: hashedPassword,
+    },
+  });
 
   // Create demo store
   const store = await prisma.store.create({
@@ -32,7 +29,7 @@ passwordHash: hashedPassword,
       platform: "CUSTOM",
       currency: "USD",
       pluginToken: randomBytes(24).toString("hex"),
-      userId: user.id,
+      ownerId: user.id,
     },
   });
 
@@ -40,7 +37,7 @@ passwordHash: hashedPassword,
   const products = await Promise.all([
     prisma.product.create({
       data: {
-        storeId: store.id, title: "Wireless Earbuds Pro", sku: "WEP-001", price: 49.99, cost: 18.50,
+        storeId: store.id, name: "Wireless Earbuds Pro", sku: "WEP-001", price: 49.99, costPrice: 18.50,
         description: "Premium wireless earbuds with active noise cancellation.",
         benefits: ["Noise Cancellation", "30h Battery", "IPX5 Waterproof"],
         winScore: 87,
@@ -48,7 +45,7 @@ passwordHash: hashedPassword,
     }),
     prisma.product.create({
       data: {
-        storeId: store.id, title: "Smart Watch X200", sku: "SWX-200", price: 129.99, cost: 52.0,
+        storeId: store.id, name: "Smart Watch X200", sku: "SWX-200", price: 129.99, costPrice: 52.0,
         description: "Fitness-focused smartwatch with heart rate monitoring.",
         benefits: ["Heart Rate Monitor", "GPS Tracking", "7-day Battery"],
         winScore: 72,
@@ -56,7 +53,7 @@ passwordHash: hashedPassword,
     }),
     prisma.product.create({
       data: {
-        storeId: store.id, title: "USB-C Hub 7-in-1", sku: "HUB-7IN1", price: 34.99, cost: 11.0,
+        storeId: store.id, name: "USB-C Hub 7-in-1", sku: "HUB-7IN1", price: 34.99, costPrice: 11.0,
         description: "Portable USB-C hub with HDMI, USB 3.0, and SD card reader.",
         benefits: ["4K HDMI", "100W PD Passthrough", "Aluminum Build"],
         winScore: 65,
@@ -64,7 +61,7 @@ passwordHash: hashedPassword,
     }),
     prisma.product.create({
       data: {
-        storeId: store.id, title: "LED Desk Lamp", sku: "LAMP-LED1", price: 27.99, cost: 9.0,
+        storeId: store.id, name: "LED Desk Lamp", sku: "LAMP-LED1", price: 27.99, costPrice: 9.0,
         description: "Adjustable LED desk lamp with touch controls.",
         benefits: ["5 Dimming Levels", "Touch Controls", "USB Charging Port"],
         winScore: 55,
@@ -72,7 +69,7 @@ passwordHash: hashedPassword,
     }),
     prisma.product.create({
       data: {
-        storeId: store.id, title: "Phone Case Ultra", sku: "PC-ULTRA", price: 14.99, cost: 2.50,
+        storeId: store.id, name: "Phone Case Ultra", sku: "PC-ULTRA", price: 14.99, costPrice: 2.50,
         description: "Slim protective phone case with military-grade drop protection.",
         benefits: ["MIL-STD Drop Tested", "Slim Design", "Wireless Charge Compatible"],
         winScore: 91,
@@ -86,13 +83,14 @@ passwordHash: hashedPassword,
     await prisma.inventoryItem.create({
       data: {
         productId: product.id, storeId: store.id, quantity: qty,
-        lowStockThreshold: 25, location: "Warehouse A",
+        lowStockAlert: 25, warehouse: "Warehouse A",
       },
     });
     await prisma.inventoryMovement.create({
       data: {
-        productId: product.id, storeId: store.id, type: "RESTOCK",
-        quantity: qty, note: "Initial stock",
+        inventoryItemId: (await prisma.inventoryItem.findFirst({ where: { productId: product.id } }))!.id,
+        type: "RESTOCK",
+        quantity: qty, reason: "Initial stock",
       },
     });
   }
@@ -120,11 +118,11 @@ passwordHash: hashedPassword,
         status,
         paymentStatus: "PAID",
         subtotal: prod.price * qty,
-        shipping: 5.99,
+        shippingCost: 5.99,
         tax: prod.price * qty * 0.08,
         total: prod.price * qty + 5.99 + prod.price * qty * 0.08,
         confirmedByCall: i % 3 === 0,
-        items: { create: { productId: prod.id, quantity: qty, price: prod.price, cost: prod.cost } },
+        items: { create: { productId: prod.id, quantity: qty, price: prod.price, costPrice: prod.costPrice } },
       },
     });
   }
@@ -134,14 +132,14 @@ passwordHash: hashedPassword,
     const date = new Date();
     date.setDate(date.getDate() - d);
     date.setHours(0, 0, 0, 0);
-    const revenue = Math.round((Math.random() * 800 + 200) * 100) / 100;
-    const cost = Math.round(revenue * (0.3 + Math.random() * 0.15) * 100) / 100;
-    const orders = Math.floor(Math.random() * 12) + 1;
+    const totalRevenue = Math.round((Math.random() * 800 + 200) * 100) / 100;
+    const totalCost = Math.round(totalRevenue * (0.3 + Math.random() * 0.15) * 100) / 100;
+    const totalOrders = Math.floor(Math.random() * 12) + 1;
     await prisma.analyticsSnapshot.create({
       data: {
-        storeId: store.id, date,
-        revenue, cost, profit: revenue - cost,
-        orders, visitors: orders * Math.floor(Math.random() * 20 + 10),
+        storeId: store.id, date, period: "30d",
+        totalRevenue, totalCost, totalProfit: totalRevenue - totalCost,
+        totalOrders,
         conversionRate: Math.round(Math.random() * 5 * 100) / 100,
       },
     });
