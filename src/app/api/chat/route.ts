@@ -148,3 +148,28 @@ export async function POST(req: NextRequest) {
     aiResponse,
   });
 }
+
+// PATCH /api/chat - Update conversation triage (priority, assignedTo, SLA, tags)
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const storeId = await getStoreId((session.user as any).id);
+  if (!storeId) return NextResponse.json({ error: "No store found" }, { status: 404 });
+
+  const { conversationId, priority, assignedTo, slaDeadline, tags } = await req.json();
+  if (!conversationId) return NextResponse.json({ error: "conversationId required" }, { status: 400 });
+
+  const data: any = {};
+  if (priority !== undefined) data.priority = priority;
+  if (assignedTo !== undefined) data.assignedTo = assignedTo;
+  if (slaDeadline !== undefined) data.slaDeadline = slaDeadline ? new Date(slaDeadline) : null;
+  if (tags !== undefined) data.tags = tags;
+
+  const updated = await prisma.conversation.update({
+    where: { id: conversationId },
+    data,
+  });
+
+  return NextResponse.json(updated);
+}

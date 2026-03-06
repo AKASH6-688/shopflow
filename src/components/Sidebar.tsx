@@ -15,6 +15,11 @@ import {
   Settings,
   BoxesIcon,
   LogOut,
+  ShoppingBag,
+  Sparkles,
+  Radio,
+  FlaskConical,
+  MessageSquareText,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -28,6 +33,11 @@ const navItems = [
   { href: "/dashboard/winning-products", label: "Winning Products", icon: Trophy },
   { href: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
   { href: "/dashboard/messaging", label: "Messaging", icon: Send },
+  { href: "/dashboard/abandoned-carts", label: "Abandoned Carts", icon: ShoppingBag },
+  { href: "/dashboard/welcome-series", label: "Welcome Series", icon: Sparkles },
+  { href: "/dashboard/broadcasts", label: "Broadcasts", icon: Radio },
+  { href: "/dashboard/ab-tests", label: "A/B Tests", icon: FlaskConical },
+  { href: "/dashboard/saved-replies", label: "Saved Replies", icon: MessageSquareText },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

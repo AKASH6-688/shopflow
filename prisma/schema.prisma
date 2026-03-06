@@ -64,6 +64,12 @@ model Store {
   analytics      AnalyticsSnapshot[]
   expenses       Expense[]
   messageLogs    MessageLog[]
+  abandonedCarts AbandonedCart[]
+  welcomeSeries  WelcomeSeries[]
+  welcomeEnrollments WelcomeEnrollment[]
+  broadcasts     Broadcast[]
+  abTests        ABTest[]
+  savedReplies   SavedReply[]
 
   @@index([ownerId])
 }
@@ -181,6 +187,8 @@ model Customer {
 
   orders              Order[]
   conversations       Conversation[]
+  abandonedCarts      AbandonedCart[]
+  welcomeEnrollments  WelcomeEnrollment[]
 
   @@unique([storeId, phone])
   @@index([storeId])
@@ -279,6 +287,11 @@ model Conversation {
   subject     String?
   status      ConversationStatus @default(ACTIVE)
   isAI        Boolean   @default(true) // handled by AI or manual
+  priority    String    @default("normal") // low, normal, high, urgent
+  assignedTo  String?   // staff user id for triage routing
+  slaDeadline DateTime? // SLA timer deadline
+  slaBreach   Boolean   @default(false)
+  tags        String[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -384,4 +397,204 @@ model Expense {
 
   @@index([storeId])
   @@index([date])
+}
+
+// ========== ABANDONED CARTS ==========
+
+model AbandonedCart {
+  id              String    @id @default(cuid())
+  customerEmail   String?
+  customerPhone   String?
+  customerName    String?
+  cartItems       Json      // [{productId, name, price, quantity, imageUrl}]
+  cartTotal       Float     @default(0)
+  currency        String    @default("USD")
+  checkoutUrl     String?   // one-tap checkout link
+  status          CartRecoveryStatus @default(ABANDONED)
+  remindersSent   Int       @default(0)
+  lastReminderAt  DateTime?
+  recoveredAt     DateTime?
+  discountCode    String?   // incentive coupon
+  discountPercent Float?
+  externalId      String?   // cart ID from platform
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+
+  storeId         String
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum CartRecoveryStatus {
+  ABANDONED
+  REMINDER_SENT
+  RECOVERED
+  EXPIRED
+}
+
+// ========== WELCOME SERIES ==========
+
+model WelcomeSeries {
+  id              String    @id @default(cuid())
+  name            String
+  isActive        Boolean   @default(true)
+  triggerEvent    String    @default("signup") // signup, first_order
+  incentiveType   String?   // discount, free_shipping, none
+  incentiveValue  String?   // "10%", "FREE_SHIP", coupon code
+  steps           WelcomeStep[]
+  enrollments     WelcomeEnrollment[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  storeId         String
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+}
+
+model WelcomeStep {
+  id              String    @id @default(cuid())
+  stepOrder       Int       // 1, 2, 3...
+  delayMinutes    Int       @default(0) // delay after previous step
+  channel         MessageChannel @default(WHATSAPP)
+  subject         String?   // for email
+  messageTemplate String    // message body with {{name}}, {{discount}} placeholders
+  isActive        Boolean   @default(true)
+
+  seriesId        String
+  series          WelcomeSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+}
+
+model WelcomeEnrollment {
+  id              String    @id @default(cuid())
+  currentStep     Int       @default(0)
+  status          String    @default("active") // active, completed, cancelled
+  nextStepAt      DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  customerId      String
+  customer        Customer  @relation(fields: [customerId], references: [id])
+
+  seriesId        String
+  series          WelcomeSeries @relation(fields: [seriesId], references: [id])
+
+  storeId         String
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, seriesId])
+  @@index([storeId])
+  @@index([status])
+}
+
+// ========== BROADCASTS ==========
+
+model Broadcast {
+  id              String    @id @default(cuid())
+  name            String
+  channel         MessageChannel @default(WHATSAPP)
+  subject         String?   // for email
+  messageTemplate String    // body with placeholders
+  segmentFilters  Json?     // {minOrders, maxOrders, isBlacklisted, tags, city, country, minSpent, maxSpent}
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  status          BroadcastStatus @default(DRAFT)
+  totalRecipients Int       @default(0)
+  totalSent       Int       @default(0)
+  totalDelivered  Int       @default(0)
+  totalRead       Int       @default(0)
+  totalClicked    Int       @default(0)
+  totalReplied    Int       @default(0)
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  storeId         String
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  abTestId        String?
+  abTest          ABTest?   @relation(fields: [abTestId], references: [id])
+
+  recipients      BroadcastRecipient[]
+
+  @@index([storeId])
+  @@index([status])
+}
+
+model BroadcastRecipient {
+  id          String    @id @default(cuid())
+  recipient   String    // phone or email
+  status      String    @default("pending") // pending, sent, delivered, read, clicked, failed
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  readAt      DateTime?
+  clickedAt   DateTime?
+
+  broadcastId String
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  customerId  String?
+
+  @@index([broadcastId])
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+// ========== A/B TESTING ==========
+
+model ABTest {
+  id              String    @id @default(cuid())
+  name            String
+  status          String    @default("draft") // draft, running, completed
+  variantA        Json      // {messageTemplate, subject?}
+  variantB        Json      // {messageTemplate, subject?}
+  splitPercent    Int       @default(50) // % getting variant A
+  winnerMetric    String    @default("read_rate") // read_rate, click_rate, reply_rate
+  winnerVariant   String?   // "A" or "B" once decided
+  variantAStats   Json?     // {sent, delivered, read, clicked, replied}
+  variantBStats   Json?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  storeId         String
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  broadcasts      Broadcast[]
+
+  @@index([storeId])
+}
+
+// ========== SAVED REPLIES (MACROS) ==========
+
+model SavedReply {
+  id          String    @id @default(cuid())
+  title       String    // short label e.g. "Shipping ETA"
+  shortcut    String    // trigger keyword e.g. "/shipping"
+  content     String    // the reply template
+  category    String?   // support, sales, returns
+  usageCount  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, shortcut])
+  @@index([storeId])
 }
