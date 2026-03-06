@@ -19,7 +19,8 @@ await prisma.user.create({
   data: {
     email: "demo@shopflow.com",
     name: "Demo User",
-    hashedPassword: hashedPassword,
+    // ✅ CORRECT — matches your schema
+passwordHash: hashedPassword,
   },
 });
 
