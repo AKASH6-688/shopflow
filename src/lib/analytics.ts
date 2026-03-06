@@ -5,7 +5,6 @@ import {
   subMonths,
   subYears,
   eachDayOfInterval,
-  eachWeekOfInterval,
   eachMonthOfInterval,
   format,
 } from "date-fns";
@@ -26,7 +25,7 @@ export async function getAnalyticsData(
 ): Promise<DataPoint[]> {
   const now = new Date();
   let startDate: Date;
-  let groupBy: "day" | "week" | "month";
+  let groupBy: "day" | "month";
 
   switch (period) {
     case "15d":
@@ -84,9 +83,6 @@ export async function getAnalyticsData(
   if (groupBy === "day") {
     intervals = eachDayOfInterval({ start: startDate, end: now });
     formatStr = "MMM dd";
-  } else if (groupBy === "week") {
-    intervals = eachWeekOfInterval({ start: startDate, end: now });
-    formatStr = "MMM dd";
   } else {
     intervals = eachMonthOfInterval({ start: startDate, end: now });
     formatStr = "MMM yyyy";
@@ -99,9 +95,6 @@ export async function getAnalyticsData(
     if (groupBy === "day") {
       periodEnd = new Date(periodStart);
       periodEnd.setDate(periodEnd.getDate() + 1);
-    } else if (groupBy === "week") {
-      periodEnd = new Date(periodStart);
-      periodEnd.setDate(periodEnd.getDate() + 7);
     } else {
       periodEnd = new Date(periodStart);
       periodEnd.setMonth(periodEnd.getMonth() + 1);
