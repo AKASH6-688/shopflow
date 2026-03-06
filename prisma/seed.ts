@@ -121,8 +121,9 @@ async function main() {
         shippingCost: 5.99,
         tax: prod.price * qty * 0.08,
         total: prod.price * qty + 5.99 + prod.price * qty * 0.08,
+        // ✅ CORRECT
         confirmedByCall: i % 3 === 0,
-        items: { create: { productId: prod.id, quantity: qty, price: prod.price, costPrice: prod.costPrice } },
+        items: { create: { productId: prod.id, quantity: qty, price: prod.price, costPrice: prod.costPrice, total: prod.price * qty } },
       },
     });
   }
