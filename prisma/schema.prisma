@@ -1,0 +1,387 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========== AUTH & USERS ==========
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(SELLER)
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  stores        Store[]
+  sessions      Session[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  ADMIN
+  SELLER
+  STAFF
+}
+
+// ========== STORE ==========
+
+model Store {
+  id             String         @id @default(cuid())
+  name           String
+  url            String?
+  platform       Platform       @default(CUSTOM)
+  apiKey         String?        // encrypted integration key
+  apiSecret      String?        // encrypted integration secret
+  webhookSecret  String?
+  pluginToken    String         @unique @default(cuid()) // token for embed plugin
+  currency       String         @default("USD")
+  timezone       String         @default("UTC")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  ownerId        String
+  owner          User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  products       Product[]
+  orders         Order[]
+  customers      Customer[]
+  inventory      InventoryItem[]
+  conversations  Conversation[]
+  analytics      AnalyticsSnapshot[]
+  expenses       Expense[]
+  messageLogs    MessageLog[]
+
+  @@index([ownerId])
+}
+
+enum Platform {
+  SHOPIFY
+  WOOCOMMERCE
+  WIX
+  CUSTOM
+  OTHER
+}
+
+// ========== PRODUCTS ==========
+
+model Product {
+  id              String    @id @default(cuid())
+  externalId      String?   // ID from external platform
+  name            String
+  description     String?
+  sku             String?
+  barcode         String?
+  price           Float
+  costPrice       Float     @default(0)
+  comparePrice    Float?    // compare at price from other brands
+  category        String?
+  tags            String[]
+  imageUrl        String?
+  isActive        Boolean   @default(true)
+  totalSold       Int       @default(0)
+  totalRevenue    Float     @default(0)
+  totalProfit     Float     @default(0)
+  winScore        Float     @default(0) // winning product score
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  storeId         String
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  inventoryItems  InventoryItem[]
+  orderItems      OrderItem[]
+  benefits        String[]  // product benefits for AI chat
+
+  @@unique([storeId, sku])
+  @@index([storeId])
+  @@index([winScore])
+}
+
+// ========== INVENTORY ==========
+
+model InventoryItem {
+  id              String    @id @default(cuid())
+  quantity        Int       @default(0)
+  lowStockAlert   Int       @default(5)
+  warehouse       String    @default("default")
+  lastRestocked   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  storeId         String
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  movements       InventoryMovement[]
+
+  @@unique([productId, warehouse])
+  @@index([storeId])
+}
+
+model InventoryMovement {
+  id              String        @id @default(cuid())
+  type            MovementType
+  quantity        Int
+  reason          String?
+  reference       String?       // order ID or restock reference
+  createdAt       DateTime      @default(now())
+
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+}
+
+enum MovementType {
+  RESTOCK
+  SALE
+  RETURN
+  ADJUSTMENT
+  DAMAGED
+}
+
+// ========== CUSTOMERS ==========
+
+model Customer {
+  id                  String    @id @default(cuid())
+  externalId          String?
+  name                String
+  email               String?
+  phone               String
+  whatsapp            String?
+  address             String?
+  city                String?
+  country             String?
+  totalOrders         Int       @default(0)
+  totalSpent          Float     @default(0)
+  nonReceivedCount    Int       @default(0) // times they didn't receive order
+  isBlacklisted       Boolean   @default(false)
+  blacklistReason     String?
+  blacklistedAt       DateTime?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  storeId             String
+  store               Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  orders              Order[]
+  conversations       Conversation[]
+
+  @@unique([storeId, phone])
+  @@index([storeId])
+  @@index([isBlacklisted])
+}
+
+// ========== ORDERS ==========
+
+model Order {
+  id              String       @id @default(cuid())
+  externalId      String?
+  orderNumber     String
+  status          OrderStatus  @default(PENDING)
+  subtotal        Float
+  shippingCost    Float        @default(0)
+  tax             Float        @default(0)
+  discount        Float        @default(0)
+  total           Float
+  profit          Float        @default(0)
+  trackingNumber  String?
+  trackingUrl     String?
+  shippingCarrier String?
+  paymentMethod   String?
+  paymentStatus   PaymentStatus @default(PENDING)
+  notes           String?
+  confirmedByCall Boolean      @default(false)
+  confirmedAt     DateTime?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+  returnedAt      DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  customerId      String
+  customer        Customer     @relation(fields: [customerId], references: [id])
+
+  storeId         String
+  store           Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  items           OrderItem[]
+  statusHistory   OrderStatusHistory[]
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  quantity    Int
+  price       Float
+  costPrice   Float   @default(0)
+  total       Float
+
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+  NOT_RECEIVED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+// ========== CONVERSATIONS (AI CHAT) ==========
+
+model Conversation {
+  id          String    @id @default(cuid())
+  subject     String?
+  status      ConversationStatus @default(ACTIVE)
+  isAI        Boolean   @default(true) // handled by AI or manual
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  messages    Message[]
+
+  @@index([storeId])
+  @@index([customerId])
+}
+
+model Message {
+  id              String      @id @default(cuid())
+  content         String
+  sender          MessageSender
+  isRead          Boolean     @default(false)
+  metadata        Json?       // extra data like product refs
+  createdAt       DateTime    @default(now())
+
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+enum ConversationStatus {
+  ACTIVE
+  RESOLVED
+  ESCALATED
+}
+
+enum MessageSender {
+  CUSTOMER
+  AI
+  SELLER
+}
+
+// ========== MESSAGE LOGS (WhatsApp, Email, Call) ==========
+
+model MessageLog {
+  id          String        @id @default(cuid())
+  channel     MessageChannel
+  direction   String        @default("outbound") // inbound or outbound
+  recipient   String
+  subject     String?
+  body        String
+  status      String        @default("sent")
+  externalId  String?       // twilio SID etc
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+
+  storeId     String
+  store       Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([channel])
+}
+
+enum MessageChannel {
+  WHATSAPP
+  EMAIL
+  PHONE_CALL
+  SMS
+}
+
+// ========== ANALYTICS ==========
+
+model AnalyticsSnapshot {
+  id              String   @id @default(cuid())
+  period          String   // "15d", "30d", "1y", "2y", "5y"
+  date            DateTime
+  totalRevenue    Float    @default(0)
+  totalCost       Float    @default(0)
+  totalProfit     Float    @default(0)
+  totalOrders     Int      @default(0)
+  totalCustomers  Int      @default(0)
+  averageOrderValue Float  @default(0)
+  topProducts     Json?    // array of top product IDs and sales
+  conversionRate  Float    @default(0)
+  returnRate      Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, period, date])
+}
+
+// ========== EXPENSES ==========
+
+model Expense {
+  id          String   @id @default(cuid())
+  category    String   // shipping, marketing, platform_fees, etc
+  description String?
+  amount      Float
+  date        DateTime
+  createdAt   DateTime @default(now())
+
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([date])
+}
